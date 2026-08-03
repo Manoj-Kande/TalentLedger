@@ -1,0 +1,78 @@
+# ============================================================
+# TalentLedger — Production Profile
+# ALL secrets from environment variables. Zero in repo.
+# ============================================================
+
+spring:
+  config:
+    activate.on-profile: prod
+
+  # PgBouncer (transaction mode — ADR-045)
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 0
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+
+  # Flyway connects to Postgres directly (bypasses PgBouncer for DDL)
+  flyway:
+    url: ${FLYWAY_URL:${DB_URL}}
+    user: ${FLYWAY_USER:${DB_USER}}
+    password: ${FLYWAY_PASS:${DB_PASS}}
+
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        generate_statistics: false
+
+  # Restrict actuator in production
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus
+
+talentledger:
+  auth:
+    jwt-secret: ${JWT_SECRET}
+    mfa-encryption-key: ${MFA_ENCRYPTION_KEY}
+    session-ttl-hours: ${SESSION_TTL_HOURS:24}
+    native-auth-enabled: ${FEATURE_NATIVE_AUTH:false}
+    mfa-enabled: ${FEATURE_MFA:true}
+
+  clerk:
+    jwks-url: ${CLERK_JWKS_URL}
+    webhook-secret: ${CLERK_WEBHOOK_SECRET}
+    issuer: ${CLERK_ISSUER}
+
+  storage:
+    provider: ${STORAGE_PROVIDER:R2}
+    r2:
+      account-id: ${R2_ACCOUNT_ID}
+      access-key: ${R2_ACCESS_KEY}
+      secret-key: ${R2_SECRET_KEY}
+      bucket: ${R2_BUCKET}
+      endpoint: ${R2_ENDPOINT}
+    s3:
+      region: ${AWS_REGION}
+      bucket: ${AWS_S3_BUCKET}
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS}
+
+logging:
+  level:
+    root: WARN
+    com.talentledger: INFO
+    com.talentledger.infrastructure.persistence: WARN
+    org.hibernate.SQL: WARN
+    org.flywaydb: WARN

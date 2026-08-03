@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- ── Spring Boot defaults (include for console-appender etc.) ── -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- ── MDC enrichment from Spring servlet request (ADR-028) ── -->
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="talentledger"/>
+    <springProperty scope="context" name="LOG_LEVEL" source="logging.level.root" defaultValue="INFO"/>
+
+    <!-- ============================================================ -->
+    <!-- CONSOLE — Structured JSON (Logstash encoder)                 -->
+    <!-- ============================================================ -->
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Include MDC fields: requestId, userId, sessionId, clientIp, userAgent -->
+            <includeMdc>true</includeMdc>
+            <includeContext>true</includeContext>
+            <!-- Custom fields -->
+            <customFields>{"service":"${APP_NAME}"}</customFields>
+            <!-- Timestamp format -->
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSS'Z'</timestampPattern>
+            <!-- Shortened class names for readability -->
+            <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================ -->
+    <!-- CONSOLE — Human-readable (for dev profile)                   -->
+    <!-- ============================================================ -->
+    <springProfile name="dev">
+        <appender name="CONSOLE_DEV" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>
+                    %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %clr(%-5level) %clr([%X{requestId:-}]){yellow} %clr(%logger{36}){cyan} - %msg%n
+                </pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <!-- ============================================================ -->
+    <!-- ROLLING FILES (ADR-013 — separate log files)                -->
+    <!-- ============================================================ -->
+
+    <!-- Main application log -->
+    <appender name="APP_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/application.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/application.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <customFields>{"service":"${APP_NAME}","log_type":"application"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Auth events log (30-day retention — ADR) -->
+    <appender name="AUTH_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/auth.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/auth.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <customFields>{"service":"${APP_NAME}","log_type":"auth"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Error-only log (alerting target — 30-day retention) -->
+    <appender name="ERROR_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <customFields>{"service":"${APP_NAME}","log_type":"error"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Dump import log (parse pipeline — 7-day retention) -->
+    <appender name="DUMP_IMPORT_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/dump-import.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/dump-import.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <customFields>{"service":"${APP_NAME}","log_type":"dump_import"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Audit log (90-day retention) -->
+    <appender name="AUDIT_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/audit.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/audit.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <customFields>{"service":"${APP_NAME}","log_type":"audit"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================ -->
+    <!-- LOGGERS — Route specific packages to specific files           -->
+    <!-- ============================================================ -->
+
+    <!-- Auth package → auth.log -->
+    <logger name="com.talentledger.infrastructure.security" level="INFO" additivity="false">
+        <appender-ref ref="AUTH_LOG"/>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </logger>
+
+    <!-- Dump import pipeline → dump-import.log -->
+    <logger name="com.talentledger.application.service.DumpImportService" level="INFO" additivity="false">
+        <appender-ref ref="DUMP_IMPORT_LOG"/>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </logger>
+    <logger name="com.talentledger.infrastructure.parser" level="INFO" additivity="false">
+        <appender-ref ref="DUMP_IMPORT_LOG"/>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </logger>
+
+    <!-- Audit events → audit.log -->
+    <logger name="com.talentledger.infrastructure.event.AuditLogListener" level="INFO" additivity="false">
+        <appender-ref ref="AUDIT_LOG"/>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </logger>
+
+    <!-- Error sink: everything ERROR → error.log -->
+    <root level="INFO">
+        <appender-ref ref="ERROR_LOG"/>
+        <appender-ref ref="APP_LOG"/>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </root>
+
+    <!-- ============================================================ -->
+    <!-- DEV PROFILE — Override: human-readable console, no files       -->
+    <!-- ============================================================ -->
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_DEV"/>
+        </root>
+
+        <logger name="com.talentledger.infrastructure.security" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_DEV"/>
+        </logger>
+
+        <logger name="com.talentledger.application.service.DumpImportService" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_DEV"/>
+        </logger>
+
+        <logger name="com.talentledger.infrastructure.parser" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_DEV"/>
+        </logger>
+    </springProfile>
+
+    <!-- ============================================================ -->
+    <!-- LOCAL PROFILE — Quiet console (WARN+ only), full detail in files -->
+    <!-- ============================================================ -->
+    <springProfile name="local">
+        <appender name="CONSOLE_LOCAL" class="ch.qos.logback.core.ConsoleAppender">
+            <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+                <level>WARN</level>
+            </filter>
+            <encoder>
+                <pattern>%d{HH:mm:ss} %clr(%-5level) %clr(%logger{25}){cyan} - %msg%n</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_LOCAL"/>
+            <appender-ref ref="APP_LOG"/>
+            <appender-ref ref="ERROR_LOG"/>
+        </root>
+
+        <logger name="com.talentledger" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_LOCAL"/>
+            <appender-ref ref="APP_LOG"/>
+        </logger>
+
+        <logger name="com.talentledger.infrastructure.security" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_LOCAL"/>
+            <appender-ref ref="AUTH_LOG"/>
+        </logger>
+
+        <logger name="com.talentledger.application.service.DumpImportService" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_LOCAL"/>
+            <appender-ref ref="DUMP_IMPORT_LOG"/>
+        </logger>
+
+        <logger name="com.talentledger.infrastructure.parser" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_LOCAL"/>
+            <appender-ref ref="DUMP_IMPORT_LOG"/>
+        </logger>
+
+        <logger name="com.talentledger.infrastructure.event.AuditLogListener" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE_LOCAL"/>
+            <appender-ref ref="AUDIT_LOG"/>
+        </logger>
+
+        <!-- Framework noise: hard-cap at WARN regardless of root level above -->
+        <logger name="org.hibernate" level="WARN"/>
+        <logger name="org.springframework" level="WARN"/>
+        <logger name="org.apache" level="WARN"/>
+        <logger name="com.zaxxer.hikari" level="WARN"/>
+    </springProfile>
+
+    <!-- ============================================================ -->
+    <!-- TEST PROFILE — Minimal console output only                   -->
+    <!-- ============================================================ -->
+    <springProfile name="test">
+        <appender name="CONSOLE_TEST" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{20} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <root level="WARN">
+            <appender-ref ref="CONSOLE_TEST"/>
+        </root>
+    </springProfile>
+
+    <!-- ============================================================ -->
+    <!-- LOG INJECTION SANITIZATION (ADR-021)                          -->
+    <!-- Strip \n, \r, \t from all user input before logging           -->
+    <!-- Implemented via MdcContext utility — NOT via replacement (to  -->
+    <!-- avoid regex cost per log line).                               -->
+    <!-- ============================================================ -->
+
+</configuration>

@@ -1,0 +1,90 @@
+# ============================================================
+# TalentLedger — Local Development Docker Compose
+# PostgreSQL + PgBouncer for serverless-compatible connection pooling
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ── PostgreSQL (Primary Database) ────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: talentledger-postgres
+    environment:
+      POSTGRES_DB: talentledger_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── PgBouncer (Connection Pooler — ADR-045) ─────────────
+  # Connect your app to PgBouncer:5432, NOT Postgres:5432
+  pgbouncer:
+    image: edoburu/pgbouncer
+    container_name: talentledger-pgbouncer
+    environment:
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_NAME: talentledger_dev
+      DATABASES_USER: postgres
+      DATABASES_PASSWORD: postgres
+      DATABASES_POOL_SIZE: 10
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 100
+      DEFAULT_POOL_SIZE: 10
+      ADMIN_USERS: postgres
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── MinIO (S3-compatible storage for local dev) ──────────
+  # Replaces Cloudflare R2 for local development
+  minio:
+    image: minio/minio:latest
+    container_name: talentledger-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Create MinIO bucket on startup ───────────────────────
+  minio-create-bucket:
+    image: minio/mc:latest
+    container_name: talentledger-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing myminio/talentledger-uploads;
+      mc anonymous set download myminio/talentledger-uploads;
+      exit 0;
+      "
+
+volumes:
+  pgdata:
+    driver: local
+  miniodata:
+    driver: local

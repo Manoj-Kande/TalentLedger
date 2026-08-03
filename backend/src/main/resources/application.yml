@@ -1,0 +1,330 @@
+# ============================================================
+# TalentLedger — Main Application Configuration
+# Profile: default (overridden by dev/prod profiles)
+# ============================================================
+
+spring:
+  application:
+    name: talentledger-backend
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 2000ms
+
+  # ── Load external API keys (optional — file may not exist) ─
+  config:
+    import: "optional:file:./api-keys.properties"
+
+  # ── Virtual Threads (Java 21) ──────────────────────────
+  threads:
+    virtual:
+      enabled: true
+
+  # ── Graceful Shutdown (ADR-027) ─────────────────────────
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  server:
+    shutdown: graceful
+    port: ${SERVER_PORT:8080}
+
+  # ── Database (PgBouncer mandatory — ADR-045) ─────────────
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/talentledger?prepareThreshold=0}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 0
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      pool-name: talentledger-hikari
+      data-source-properties:
+        # PgBouncer transaction-mode compatibility
+        prepareThreshold: 0
+        # Reduce round-trips
+        reWriteBatchedInserts: true
+
+  # ── JPA / Hibernate ─────────────────────────────────────
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        # Batch inserts (ADR-022)
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
+        # JSONB handling
+        types.print.banner: false
+        # Statistics (disabled in prod)
+        statistics: false
+        generate_statistics: false
+
+  # ── Flyway ─────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    out-of-order: false
+    # Connect to Postgres directly (not PgBouncer) for migrations
+    url: ${FLYWAY_URL:${DB_URL}}
+    user: ${FLYWAY_USER:${DB_USER}}
+    password: ${FLYWAY_PASS:${DB_PASS}}
+
+  # ── Servlet ────────────────────────────────────────────
+  servlet:
+    multipart:
+      max-file-size: ${MAX_FILE_SIZE:50MB}
+      max-request-size: ${MAX_REQUEST_SIZE:55MB}
+      file-size-threshold: 0
+
+  # ── Jackson ─────────────────────────────────────────────
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      write-durations-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: UTC
+
+  # ── Actuator Hardening (ADR — only health/info/metrics) ─
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus
+        base-path: /actuator
+    endpoint:
+      health:
+        show-details: when_authorized
+        probes:
+          enabled: true
+        group:
+          readiness:
+            include: db,storage
+      info:
+        enabled: true
+      metrics:
+        enabled: true
+      prometheus:
+        enabled: true
+    info:
+      env:
+        enabled: false
+    metrics:
+      export:
+        prometheus:
+          enabled: true
+      tags:
+        application: ${spring.application.name}
+
+# ── Application-specific Config ────────────────────────────
+
+talentledger:
+  # Auth
+  auth:
+    jwt-secret: ${JWT_SECRET:default-dev-secret-change-me-256bits}
+    mfa-encryption-key: ${MFA_ENCRYPTION_KEY:default-dev-mfa-key-change-me-in-prod}
+    session-ttl-hours: ${SESSION_TTL_HOURS:24}
+    max-sessions:
+      free: 3
+      pro: 10
+      team: 999
+    native-auth-enabled: ${FEATURE_NATIVE_AUTH:false}
+    mfa-enabled: ${FEATURE_MFA:true}
+    password-min-length: 12
+    password-history-count: 5
+    max-failed-logins:
+      - attempts: 5
+        lock-minutes: 15
+      - attempts: 10
+        lock-minutes: 60
+      - attempts: 20
+        action: suspend
+
+  # Clerk OAuth
+  clerk:
+    jwks-url: ${CLERK_JWKS_URL:}
+    webhook-secret: ${CLERK_WEBHOOK_SECRET:}
+    issuer: ${CLERK_ISSUER:}
+
+  # Storage (Provider-agnostic — ADR-005)
+  storage:
+    provider: ${STORAGE_PROVIDER:LOCAL}
+    local:
+      path: ${LOCAL_STORAGE_PATH:./uploads}
+    r2:
+      account-id: ${R2_ACCOUNT_ID:}
+      access-key: ${R2_ACCESS_KEY:}
+      secret-key: ${R2_SECRET_KEY:}
+      bucket: ${R2_BUCKET:talentledger-uploads}
+      endpoint: ${R2_ENDPOINT:}
+    s3:
+      region: ${AWS_REGION:us-east-1}
+      bucket: ${AWS_S3_BUCKET:talentledger-uploads}
+      access-key: ${AWS_ACCESS_KEY:}
+      secret-key: ${AWS_SECRET_KEY:}
+
+  # CORS (strict — no wildcard)
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+    allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+    max-age: 3600
+
+  # Quota (ADR — tier limits)
+  quotas:
+    free:
+      active-dumps: 1
+      contacts: 200
+      uploads-monthly: 5
+      file-size-mb: 5
+      ai-credits: 0
+      session-ttl-minutes: 120
+      export-max-rows: 50
+    pro:
+      active-dumps: 999
+      contacts: 10000
+      uploads-monthly: 100
+      file-size-mb: 50
+      ai-credits: 500
+      session-ttl-minutes: 10080
+      export-max-rows: 10000
+    team:
+      active-dumps: 999
+      contacts: 50000
+      uploads-monthly: 500
+      file-size-mb: 100
+      ai-credits: 2000
+      session-ttl-minutes: 43200
+      export-max-rows: 50000
+
+  # Parsing (ADR-041, ADR-014)
+  parsing:
+    batch-size: 50
+    max-parse-errors-stored: 100
+    temp-file-ttl-hours: 24
+    header-confidence-threshold-low: 0.5
+    header-confidence-threshold-high: 0.8
+
+  # Caching (ADR-004): Caffeine L1 by default; set provider: REDIS once
+  # horizontally scaled to 2+ instances (a shared L2 cache is only useful
+  # when instances would otherwise each hold a different, stale copy).
+  cache:
+    provider: ${CACHE_PROVIDER:CAFFEINE}
+    user-profile-ttl-minutes: 5
+    dump-list-ttl-minutes: 2
+    search-ttl-minutes: 1
+    system-config-ttl-minutes: 1
+    maximum-size: 10000
+
+  # Rate Limiting (Bucket4j)
+  rate-limit:
+    free:
+      requests-per-minute: 30
+    pro:
+      requests-per-minute: 300
+    auth-login:
+      max-attempts: 5
+      window-minutes: 15
+      scope: ip
+    auth-register:
+      max-attempts: 3
+      window-hours: 1
+      scope: ip
+    auth-password-reset:
+      max-attempts: 3
+      window-hours: 1
+      scope: email
+
+  # Pagination (ADR-006, ADR-044)
+  pagination:
+    default-page-size: 50
+    max-page-size: 100
+
+  # Outbox Poller (ADR-042)
+  outbox:
+    poll-interval-ms: 5000
+    batch-size: 50
+    max-retries: 3
+
+  # Export (ADR-024)
+  export:
+    csv-include-bom: true
+
+  # Demo list (free tier)
+  demo:
+    enabled: true
+    contact-count: 200
+    ttl-days: 7
+    # Item #1: byte cap for guest (unauthenticated) preview uploads —
+    # AuthService.createGuestSession() applies this to the guest's quota row.
+    guest-storage-limit-bytes: 104857600 # 100MB
+
+  # Email (provider-agnostic — CONSOLE for dev, RESEND for production)
+  email:
+    provider: ${EMAIL_PROVIDER:CONSOLE}
+    from-address: ${EMAIL_FROM:noreply@talentledger.app}
+    resend:
+      api-key: ${RESEND_API_KEY:}
+
+  # AI enrichment (provider-agnostic — STUB for dev, ANTHROPIC for production)
+  ai:
+    provider: ${AI_PROVIDER:STUB}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${ANTHROPIC_MODEL:claude-sonnet-4-6}
+
+  # Billing (Stripe) — ADR: subscriptions/subscription_events tables existed
+  # with no provider wired to them at all prior to this.
+  billing:
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      price-pro-monthly: ${STRIPE_PRICE_PRO_MONTHLY:}
+      price-pro-yearly: ${STRIPE_PRICE_PRO_YEARLY:}
+      price-team-monthly: ${STRIPE_PRICE_TEAM_MONTHLY:}
+      price-team-yearly: ${STRIPE_PRICE_TEAM_YEARLY:}
+    success-url: ${BILLING_SUCCESS_URL:http://localhost:3000/settings?billing=success}
+    cancel-url: ${BILLING_CANCEL_URL:http://localhost:3000/settings?billing=cancelled}
+    portal-return-url: ${BILLING_PORTAL_RETURN_URL:http://localhost:3000/settings}
+
+# ── Caffeine Cache ───────────────────────────────────────
+
+caffeine:
+  spec: maximumSize=${talentledger.cache.maximum-size}
+
+# ── SpringDoc / OpenAPI ──────────────────────────────────
+
+springdoc:
+  api-docs:
+    path: /api/docs
+    enabled: true
+  swagger-ui:
+    path: /api/docs/ui
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: false
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  show-actuator: false
+
+# ── Logging (MDC fields — ADR-028) ──────────────────────
+
+logging:
+  config: classpath:logback-spring.xml

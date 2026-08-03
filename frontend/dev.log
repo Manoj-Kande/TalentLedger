@@ -1,0 +1,41 @@
+▲ Next.js 16.2.12 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.31.133:3000
+- Environments: .env
+✓ Ready in 538ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of D:\MY_PROJECTS\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * D:\MY_PROJECTS\talentledger\frontend1\talentledger-frontend-fixed (3)\package-lock.json
+
+
+ GET / 200 in 363ms (next.js: 136ms, application-code: 227ms)
+ GET /register 200 in 139ms (next.js: 53ms, application-code: 85ms)
+○ Compiling /dashboard ...
+ GET /dashboard 200 in 4.8s (next.js: 4.5s, proxy.ts: 228ms, application-code: 92ms)
+ GET /settings 200 in 1086ms (next.js: 1016ms, proxy.ts: 12ms, application-code: 58ms)
+ GET /settings?tab=billing 200 in 69ms (next.js: 12ms, proxy.ts: 9ms, application-code: 48ms)
+ GET /settings?tab=billing 200 in 60ms (next.js: 11ms, proxy.ts: 8ms, application-code: 41ms)
+ GET /settings?tab=security 200 in 70ms (next.js: 10ms, proxy.ts: 10ms, application-code: 51ms)
+ GET /settings?tab=security 200 in 65ms (next.js: 14ms, proxy.ts: 8ms, application-code: 43ms)
+ GET /settings?tab=notifications 200 in 69ms (next.js: 11ms, proxy.ts: 6ms, application-code: 52ms)
+ GET /settings?tab=notifications 200 in 63ms (next.js: 12ms, proxy.ts: 9ms, application-code: 42ms)
+ GET /settings?tab=security 200 in 63ms (next.js: 13ms, proxy.ts: 11ms, application-code: 40ms)
+ GET /settings?tab=security 200 in 51ms (next.js: 10ms, proxy.ts: 7ms, application-code: 35ms)
+ GET /settings?tab=billing 200 in 72ms (next.js: 12ms, proxy.ts: 6ms, application-code: 53ms)
+ GET /settings?tab=billing 200 in 63ms (next.js: 13ms, proxy.ts: 9ms, application-code: 41ms)
+ GET /contacts 200 in 1127ms (next.js: 1083ms, proxy.ts: 10ms, application-code: 34ms)
+ GET /dashboard 200 in 75ms (next.js: 14ms, proxy.ts: 8ms, application-code: 53ms)
+ GET /settings 200 in 72ms (next.js: 23ms, proxy.ts: 9ms, application-code: 40ms)
+ GET /settings 200 in 64ms (next.js: 13ms, proxy.ts: 9ms, application-code: 42ms)
+ GET /contacts 200 in 56ms (next.js: 9ms, proxy.ts: 7ms, application-code: 39ms)
+ GET /companies 200 in 792ms (next.js: 747ms, proxy.ts: 7ms, application-code: 37ms)
+ GET /saved-lists 200 in 935ms (next.js: 886ms, proxy.ts: 4ms, application-code: 46ms)
+ GET /dashboard 200 in 64ms (next.js: 12ms, proxy.ts: 9ms, application-code: 43ms)
+ GET /dashboard 200 in 380ms (next.js: 15ms, proxy.ts: 10ms, application-code: 355ms)
+ GET /admin 200 in 1116ms (next.js: 967ms, proxy.ts: 10ms, application-code: 139ms)
+ GET /dashboard 200 in 60ms (next.js: 9ms, proxy.ts: 10ms, application-code: 41ms)
+ GET /dashboard 200 in 265ms (next.js: 68ms, proxy.ts: 34ms, application-code: 163ms)
+ GET /dashboard 200 in 147ms (next.js: 11ms, proxy.ts: 8ms, application-code: 128ms)
