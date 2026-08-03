@@ -1,0 +1,21 @@
+# secrets — never commit
+backend/api-keys.properties
+frontend/.env
+frontend/.env.local
+*.env
+
+# dependencies
+frontend/node_modules/
+node_modules/
+
+# build artifacts
+backend/target/
+backend/.mvn/
+*.class
+frontend/.next/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+
+# OS / editor
+.DS_Store
+*.log
