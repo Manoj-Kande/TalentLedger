@@ -34,11 +34,16 @@ public class RateLimitFilter implements Filter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
+    
     private static final int FREE_REQUESTS_PER_MINUTE = 60;
-    private static final int AUTH_LOGIN_MAX = 50;
-    private static final int AUTH_LOGIN_WINDOW_MINUTES = 15;
     private static final int AUTH_REGISTER_MAX = 50;
     private static final int AUTH_REGISTER_WINDOW_HOURS = 1;
+
+    @Value("${talentledger.rate-limit.auth-login.max-attempts:5}")
+    private int authLoginMax;
+
+    @Value("${talentledger.rate-limit.auth-login.window-minutes:15}")
+    private int authLoginWindowMinutes;
 
     private final Map<String, Bucket> ipBuckets = new ConcurrentHashMap<>();
     private final Map<String, Bucket> authIpBuckets = new ConcurrentHashMap<>();
@@ -65,10 +70,10 @@ public class RateLimitFilter implements Filter {
 
         try {
             if (path.contains("/auth/login")) {
-                long remaining = checkAuthLimitWithRemaining("login:" + clientIp, AUTH_LOGIN_MAX, Duration.ofMinutes(AUTH_LOGIN_WINDOW_MINUTES));
-                httpResponse.setHeader("X-RateLimit-Limit", String.valueOf(AUTH_LOGIN_MAX));
+                long remaining = checkAuthLimitWithRemaining("login:" + clientIp, authLoginMax, Duration.ofMinutes(authLoginWindowMinutes));
+                httpResponse.setHeader("X-RateLimit-Limit", String.valueOf(authLoginMax));
                 httpResponse.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
-                httpResponse.setHeader("X-RateLimit-Window", String.valueOf(AUTH_LOGIN_WINDOW_MINUTES * 60));
+                httpResponse.setHeader("X-RateLimit-Window", String.valueOf(authLoginWindowMinutes * 60));
             } else if (path.contains("/auth/register")) {
                 long remaining = checkAuthLimitWithRemaining("register:" + clientIp, AUTH_REGISTER_MAX, Duration.ofHours(AUTH_REGISTER_WINDOW_HOURS));
                 httpResponse.setHeader("X-RateLimit-Limit", String.valueOf(AUTH_REGISTER_MAX));
